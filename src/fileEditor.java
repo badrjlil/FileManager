@@ -1,20 +1,27 @@
 
+import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.rmi.RemoteException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class fileEditor extends javax.swing.JFrame {
 
-    private String fileName;
-    public fileEditor(String fileName) {
-        this.fileName = fileName;
+    private File file;
+    private Main mainFrame;
+
+    public fileEditor(File file, Main main) {
+        this.file = file;
+        this.mainFrame = main;
         initComponents();
         setDefaultCloseOperation(fileEditor.DISPOSE_ON_CLOSE);
         this.setLocationRelativeTo(null);
         try {
-            FileReader file = new FileReader(this.fileName);
+            FileReader fileContent = new FileReader(file);
             String s = "";
             int i = 0;
-            while ((i = file.read()) != -1) {
+            while ((i = fileContent.read()) != -1) {
                 s = s + (char) i;
             }
             textContent.setText(s);
@@ -78,15 +85,14 @@ public class fileEditor extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void saveActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_saveActionPerformed
-        try{
-        FileWriter file = new FileWriter(fileName);
-        String newText = textContent.getText();
-        file.write(newText);
-        file.close();
-        dispose();
-        }catch(Exception e){
-            e.printStackTrace();
+        if (mainFrame != null) {
+            try {
+                mainFrame.onFileSaved(file.getPath(), textContent.getText());
+            } catch (RemoteException ex) {
+                Logger.getLogger(fileEditor.class.getName()).log(Level.SEVERE, null, ex);
+            }
         }
+        dispose();
     }//GEN-LAST:event_saveActionPerformed
 
     private void quitActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_quitActionPerformed

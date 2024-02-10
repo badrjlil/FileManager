@@ -1,4 +1,5 @@
 
+import interfaces.interfacefile;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Cursor;
@@ -15,9 +16,11 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.rmi.Naming;
+import java.rmi.RemoteException;
 import java.util.Comparator;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.JButton;
 import javax.swing.JOptionPane;
 import javax.swing.border.EmptyBorder;
@@ -27,6 +30,7 @@ public class Main extends javax.swing.JFrame {
     String defaultPath = System.getProperty("user.dir") + "\\ServerStorage";
     int arrowWidth = 8;
 
+    interfacefile getfunctions = (interfacefile) Naming.lookup("rmi://localhost:1099/frameoperations");
     JPanel contentPane = new JPanel();
     JPanel navigationPane = new JPanel();
 
@@ -34,7 +38,7 @@ public class Main extends javax.swing.JFrame {
     private static ArrayList<JPanel> selectedElementBoxes = new ArrayList<>();
     private static ArrayList<JPanel> selectedContentElementBoxes = new ArrayList<>();
 
-    public Main() {
+    public Main() throws Exception {
         initComponents();
         this.setLocationRelativeTo(null);
         contentPane.setLayout(new GridLayout(ERROR, 1));
@@ -43,8 +47,12 @@ public class Main extends javax.swing.JFrame {
         addToContentPane(defaultPath);
     }
 
-    private void addToNavigationPane(String path, String indexID, int rowIndex, int columnIndex) {
-        File[] files = new File(path).listFiles(file -> file.isDirectory());
+    public void onFileSaved(String filePath, String content) throws RemoteException {
+        getfunctions.saveFile(filePath, content);
+    }
+
+    private void addToNavigationPane(String path, String indexID, int rowIndex, int columnIndex) throws Exception {
+        File[] files = getfunctions.showfiles(path);
         sortByFolders(files);
         int x = 1;
         for (File f : files) {
@@ -93,8 +101,12 @@ public class Main extends javax.swing.JFrame {
                     int fileIndex = navigationPane.getComponentZOrder(panel);
 
                     if (arrowButton.getClientProperty("expanded") == null || !(boolean) arrowButton.getClientProperty("expanded")) {
-                        // Expand
-                        addToNavigationPane(filePath, indexID, fileIndex + 1, columnIndex + 1);
+                        try {
+                            // Expand
+                            addToNavigationPane(filePath, indexID, fileIndex + 1, columnIndex + 1);
+                        } catch (Exception ex) {
+                            Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+                        }
                         arrowButton.putClientProperty("expanded", true);
                     } else {
                         // Collapse
@@ -120,7 +132,11 @@ public class Main extends javax.swing.JFrame {
             elementBox.addMouseListener(new MouseAdapter() {
                 @Override
                 public void mouseClicked(MouseEvent e) {
-                    handleSelection(elementBox);
+                    try {
+                        handleSelection(elementBox);
+                    } catch (RemoteException ex) {
+                        Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 }
             });
 
@@ -148,7 +164,8 @@ public class Main extends javax.swing.JFrame {
         }
     }
 
-    private void addToContentPane(String path) {
+    private void addToContentPane(String path) throws RemoteException {
+        File[] files = getfunctions.showfiles(path);
         contentPane.removeAll();
         contentPane.revalidate();
         contentPane.repaint();
@@ -184,11 +201,13 @@ public class Main extends javax.swing.JFrame {
             elementBox.addMouseListener(new MouseAdapter() {
                 @Override
                 public void mouseClicked(MouseEvent e) {
-                    if (e.getClickCount() == 2) {
-                        // Perform double-click action
-                        openSelectedItem(elementBox);
+                    if (e.getClickCount() == 2){
+                        try {
+                            openSelectedItem(elementBox);
+                        } catch (RemoteException ex) {
+                            Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+                        }
                     } else {
-                        // Handle normal selection
                         handleContentSelection(elementBox);
                     }
                 }
@@ -201,7 +220,7 @@ public class Main extends javax.swing.JFrame {
         pathLabel.setText(path.replace(defaultPath, ""));
     }
 
-    private void handleSelection(JPanel elementBox) {
+    private void handleSelection(JPanel elementBox) throws RemoteException {
         for (JPanel selectedBox : selectedElementBoxes) {
             selectedBox.setBackground(null);
             selectedBox.putClientProperty("selected", false);
@@ -224,7 +243,7 @@ public class Main extends javax.swing.JFrame {
 
     private void handleContentSelection(JPanel elementBox) {
         for (JPanel selectedBox : selectedContentElementBoxes) {
-            selectedBox.setBackground(null); // Reset background to deselect
+            selectedBox.setBackground(null);
             selectedBox.putClientProperty("selected", false);
         }
         selectedContentElementBoxes.clear();
@@ -233,19 +252,22 @@ public class Main extends javax.swing.JFrame {
         if (isSelected != null && isSelected) {
             elementBox.setBackground(null);
         } else {
-            elementBox.setBackground(Color.GRAY); // Change to desired selection color
+            elementBox.setBackground(Color.GRAY);
             selectedContentElementBoxes.add(elementBox);
         }
         elementBox.putClientProperty("selected", isSelected != null ? !isSelected : true);
     }
 
-    private void openSelectedItem(JPanel elementBox) {
+    private void openSelectedItem(JPanel elementBox) throws RemoteException {
         String path = (String) ((JLabel) elementBox.getComponent(1)).getClientProperty("path");
-        File f = new File(path);
-        if (f.isDirectory()) {
-            addToContentPane(path);
-        } else if (f.isFile()) {
-            new fileEditor(path).setVisible(true);
+        try {
+            if (getfunctions.openElement(path)) {
+                addToContentPane(path);
+            } else {
+                new fileEditor(getfunctions.readFile(path), this).setVisible(true);
+            }
+        } catch (Exception ex) {
+            Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
         }
 
     }
@@ -426,24 +448,32 @@ public class Main extends javax.swing.JFrame {
         if (lastIndex != -1) {
             laaabel = laaabel.substring(0, lastIndex);
         }
-        addToContentPane(defaultPath + laaabel);
+        try {
+            addToContentPane(defaultPath + laaabel);
+        } catch (RemoteException ex) {
+            Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }//GEN-LAST:event_goaBackActionPerformed
 
     private void createFolderActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_createFolderActionPerformed
         String folderName = JOptionPane.showInputDialog(this, "Entrez le nom du dossier que vous souhaitez créer");
         if (folderName != null) {
             String newFolder = defaultPath + pathLabel.getText() + "\\" + folderName;
-            File folder = new File(newFolder);
-            if (!folder.exists()) {
-                boolean created = folder.mkdir();
-                if (created) {
-                    addToContentPane(defaultPath + pathLabel.getText());
-                    System.out.println(newFolder + " Folder created");
+            try {
+                int status = getfunctions.createFolder(newFolder);
+                if (status == 0) {
+                    JOptionPane.showMessageDialog(this, "Fichier du meme nom existe déja");
+                } else if (status == 3) {
+                    JOptionPane.showMessageDialog(this, "Dossier existe déja");
+
+                } else if (status == 2) {
+                    JOptionPane.showMessageDialog(this, "Échec de création du Dossier");
                 } else {
-                    JOptionPane.showMessageDialog(this, "Échec de la création du dossier");
+                    refresh();
                 }
-            } else {
-                JOptionPane.showMessageDialog(this, "Le dossier existe déjà");
+
+            } catch (RemoteException ex) {
+                Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
     }//GEN-LAST:event_createFolderActionPerformed
@@ -451,50 +481,51 @@ public class Main extends javax.swing.JFrame {
     private void deleteItemActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_deleteItemActionPerformed
         String itemName = ((JLabel) selectedContentElementBoxes.getFirst().getComponent(1)).getText();
         String itemPath = defaultPath + pathLabel.getText() + "\\" + itemName;
-        File file = new File(itemPath);
-        if (file.exists()) {
-            boolean deleted = file.delete();
-            if (deleted) {
-                System.out.println(defaultPath + pathLabel.getText() + "\\" + itemName + " Deleted");
+        try {
+            boolean status = getfunctions.deleteElement(itemPath);
+            if (status) {
+                refresh();
             } else {
-                JOptionPane.showMessageDialog(this, "Échec de la suppression d'élement");
+                JOptionPane.showMessageDialog(this, "Could not delete shit");
             }
-            addToContentPane(defaultPath + pathLabel.getText());
+        } catch (Exception ex) {
+            Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
         }
     }//GEN-LAST:event_deleteItemActionPerformed
 
     private void renameItemActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_renameItemActionPerformed
         String itemName = ((JLabel) selectedContentElementBoxes.getFirst().getComponent(1)).getText();
         String currentItemPath = defaultPath + pathLabel.getText() + "\\" + itemName;
-        String newName = JOptionPane.showInputDialog(this, "Entrez le nouveau nom");
-
-        String newItemPath = defaultPath + pathLabel.getText() + "\\" + newName;
-        File currentFile = new File(currentItemPath);
-        File newFile = new File(newItemPath);
-        boolean renamed = currentFile.renameTo(newFile);
-        if (renamed) {
-            System.out.println(currentItemPath + " renamed to " + newItemPath);
-        } else {
-            System.out.println("Failed to rename " + currentItemPath);
+        String newName = JOptionPane.showInputDialog(this, "Entrez le nouveau nom", itemName);
+        if (newName != null) {
+            String newItemPath = defaultPath + pathLabel.getText() + "\\" + newName;
+            try {
+                boolean status = getfunctions.renameElement(currentItemPath, newItemPath);
+                if (!status) {
+                    JOptionPane.showMessageDialog(this, "Échec");
+                } else {
+                    refresh();
+                }
+            } catch (RemoteException ex) {
+                Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+            }
         }
-        addToContentPane(defaultPath + pathLabel.getText());
     }//GEN-LAST:event_renameItemActionPerformed
 
     private void createFileActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_createFileActionPerformed
         String fileName = JOptionPane.showInputDialog(this, "Entrez le nom du fichier que vous souhaitez créer");
         String filePath = defaultPath + pathLabel.getText() + "\\" + fileName;
-        File file = new File(filePath);
-        if (!file.exists()) {
-            try {
-                FileOutputStream fos = new FileOutputStream(file);
-                fos.close();
-                System.out.println(filePath + " File created");
-            } catch (IOException e) {
-                e.printStackTrace();
+        try {
+            int status = getfunctions.createFile(filePath);
+            if (status == 0) {
+                JOptionPane.showMessageDialog(this, "Fichier exists déja");
+            } else if (status == 2) {
+                JOptionPane.showMessageDialog(this, "Échec de création de fichier");
+            } else {
+                refresh();
             }
-            addToContentPane(defaultPath + pathLabel.getText());
-        }else{
-            JOptionPane.showMessageDialog(this, "Fichier exists déja");
+        } catch (RemoteException ex) {
+            Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
         }
     }//GEN-LAST:event_createFileActionPerformed
 
@@ -505,20 +536,23 @@ public class Main extends javax.swing.JFrame {
     private void openActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_openActionPerformed
         String fileName = ((JLabel) selectedContentElementBoxes.getFirst().getComponent(1)).getText();
         String filePath = defaultPath + pathLabel.getText() + "\\" + fileName;
-        File f = new File(filePath);
-        if (f.isDirectory()) {
-            addToContentPane(filePath);
-        } else if (f.isFile()) {
-            new fileEditor(filePath).setVisible(true);
+        try {
+            if (getfunctions.openElement(filePath)) {
+                addToContentPane(filePath);
+            } else {
+                new fileEditor(getfunctions.readFile(filePath), this).setVisible(true);
+            }
+        } catch (Exception ex) {
+            Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
         }
     }//GEN-LAST:event_openActionPerformed
 
+    private void refresh() throws RemoteException {
+        addToContentPane(defaultPath + pathLabel.getText());
+    }
+
     public static void main(String args[]) {
 
-        //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
-        /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
-         * For details see http://download.oracle.com/javase/tutorial/uiswing/lookandfeel/plaf.html 
-         */
         try {
             for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
                 if ("Nimbus".equals(info.getName())) {
@@ -535,11 +569,14 @@ public class Main extends javax.swing.JFrame {
         } catch (javax.swing.UnsupportedLookAndFeelException ex) {
             java.util.logging.Logger.getLogger(Main.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
-        //</editor-fold>
         java.awt.EventQueue.invokeLater(new Runnable() {
             @Override
             public void run() {
-                new Main().setVisible(true);
+                try {
+                    new Main().setVisible(true);
+                } catch (Exception ex) {
+                    Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
         });
     }
