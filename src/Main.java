@@ -53,125 +53,107 @@ public class Main extends javax.swing.JFrame {
 
     private void addToNavigationPane(String path, String indexID, int rowIndex, int columnIndex) throws Exception {
         File[] files = getfunctions.showfiles(path);
-        sortByFolders(files);
         int x = 1;
         for (File f : files) {
-            JPanel elementBox = new JPanel();
-            JButton arrowButton = new JButton();
-            JLabel elementIcon = new JLabel();
-            JLabel elementName = new JLabel();
+            if (getfunctions.isDirectory(f.getPath())) {
 
-            elementBox.setLayout(new FlowLayout(FlowLayout.LEFT, 10, 1));
-            elementBox.setBorder(new EmptyBorder(0, 20 * columnIndex, 0, 0));
+                JPanel elementBox = new JPanel();
+                JButton arrowButton = new JButton();
+                JLabel elementIcon = new JLabel();
+                JLabel elementName = new JLabel();
 
-            arrowButton.setPreferredSize(new Dimension(arrowWidth, arrowWidth));
-            arrowButton.setEnabled(false);
-            arrowButton.setContentAreaFilled(false);
-            arrowButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
-            ImageIcon image;
+                elementBox.setLayout(new FlowLayout(FlowLayout.LEFT, 10, 1));
+                elementBox.setBorder(new EmptyBorder(0, 20 * columnIndex, 0, 0));
 
-            if (f.listFiles(file -> file.isDirectory()).length > 0) {
-                image = new ImageIcon(System.getProperty("user.dir") + "\\icons\\right-arrow.png");
-                Image convertedImage = image.getImage();
-                Image resizedImage = convertedImage.getScaledInstance(arrowWidth, arrowWidth, Image.SCALE_SMOOTH);
+                arrowButton.setPreferredSize(new Dimension(arrowWidth, arrowWidth));
+                arrowButton.setEnabled(false);
+                arrowButton.setContentAreaFilled(false);
+                arrowButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                ImageIcon image;
 
-                arrowButton.setEnabled(true);
-                arrowButton.setIcon(new ImageIcon(resizedImage));
-            }
-            elementBox.add(arrowButton);
+                if (getfunctions.checkSubDirectory(f.getPath())) {
+                    image = new ImageIcon(System.getProperty("user.dir") + "\\icons\\right-arrow.png");
+                    Image convertedImage = image.getImage();
+                    Image resizedImage = convertedImage.getScaledInstance(arrowWidth, arrowWidth, Image.SCALE_SMOOTH);
 
-            Image imageIcon = new ImageIcon(System.getProperty("user.dir") + "\\icons\\folder.png").getImage();
-            Image resizedImage = imageIcon.getScaledInstance(30, 30, Image.SCALE_SMOOTH);
-            elementIcon.setIcon(new ImageIcon(resizedImage));
-            elementIcon.setPreferredSize(new Dimension(30, 30));
+                    arrowButton.setEnabled(true);
+                    arrowButton.setIcon(new ImageIcon(resizedImage));
+                }
+                elementBox.add(arrowButton);
 
-            elementName.setText(f.getName());
-            elementName.putClientProperty("path", f.getPath());
-            elementBox.add(elementIcon);
-            elementBox.add(elementName);
+                Image imageIcon = new ImageIcon(System.getProperty("user.dir") + "\\icons\\folder.png").getImage();
+                Image resizedImage = imageIcon.getScaledInstance(30, 30, Image.SCALE_SMOOTH);
+                elementIcon.setIcon(new ImageIcon(resizedImage));
+                elementIcon.setPreferredSize(new Dimension(30, 30));
 
-            //Expand & Collapse Button
-            arrowButton.addActionListener(new ActionListener() {
-                @Override
-                public void actionPerformed(ActionEvent e) {
-                    Object parentPanel = arrowButton.getParent();
-                    JPanel panel = (JPanel) parentPanel;
-                    String indexID = (String) panel.getClientProperty("indexID");
-                    String filePath = String.valueOf(f);
-                    int fileIndex = navigationPane.getComponentZOrder(panel);
+                elementName.setText(f.getName());
+                elementName.putClientProperty("path", f.getPath());
+                elementBox.add(elementIcon);
+                elementBox.add(elementName);
 
-                    if (arrowButton.getClientProperty("expanded") == null || !(boolean) arrowButton.getClientProperty("expanded")) {
-                        try {
-                            // Expand
-                            addToNavigationPane(filePath, indexID, fileIndex + 1, columnIndex + 1);
-                        } catch (Exception ex) {
-                            Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
-                        }
-                        arrowButton.putClientProperty("expanded", true);
-                    } else {
-                        // Collapse
-                        for (int i = navigationPane.getComponentCount() - 1; i >= 0; i--) {
-                            JPanel panel2 = (JPanel) navigationPane.getComponent(i);
-                            String toRemove = (String) panel2.getClientProperty("indexID");
-                            if (toRemove.startsWith(indexID)) {
-                                if (!toRemove.equals(indexID)) {
-                                    navigationPane.remove(i);
+                //Expand & Collapse Button
+                arrowButton.addActionListener(new ActionListener() {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        Object parentPanel = arrowButton.getParent();
+                        JPanel panel = (JPanel) parentPanel;
+                        String indexID = (String) panel.getClientProperty("indexID");
+                        String filePath = String.valueOf(f);
+                        int fileIndex = navigationPane.getComponentZOrder(panel);
+
+                        if (arrowButton.getClientProperty("expanded") == null || !(boolean) arrowButton.getClientProperty("expanded")) {
+                            try {
+                                // Expand
+                                addToNavigationPane(filePath, indexID, fileIndex + 1, columnIndex + 1);
+                            } catch (Exception ex) {
+                                Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+                            arrowButton.putClientProperty("expanded", true);
+                        } else {
+                            // Collapse
+                            for (int i = navigationPane.getComponentCount() - 1; i >= 0; i--) {
+                                JPanel panel2 = (JPanel) navigationPane.getComponent(i);
+                                String toRemove = (String) panel2.getClientProperty("indexID");
+                                if (toRemove.startsWith(indexID)) {
+                                    if (!toRemove.equals(indexID)) {
+                                        navigationPane.remove(i);
+                                    }
                                 }
                             }
+                            leftScrollPane.setViewportView(navigationPane);
+                            arrowButton.putClientProperty("expanded", false);
                         }
-                        leftScrollPane.setViewportView(navigationPane);
-                        arrowButton.putClientProperty("expanded", false);
                     }
-                }
-            });
-            String a = indexID + x;
-            x++;
-            elementBox.putClientProperty("indexID", a);
-            //Element selection functions
-            elementBox.putClientProperty("selected", false);
-            elementBox.addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseClicked(MouseEvent e) {
-                    try {
-                        handleSelection(elementBox);
-                    } catch (RemoteException ex) {
-                        Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+                });
+                String a = indexID + x;
+                x++;
+                elementBox.putClientProperty("indexID", a);
+                //Element selection functions
+                elementBox.putClientProperty("selected", false);
+                elementBox.addMouseListener(new MouseAdapter() {
+                    @Override
+                    public void mouseClicked(MouseEvent e) {
+                        try {
+                            handleSelection(elementBox);
+                        } catch (RemoteException ex) {
+                            Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+                        }
                     }
-                }
-            });
+                });
 
-            navigationPane.add(elementBox, rowIndex);
-            rowIndex++;
-            leftScrollPane.setViewportView(navigationPane);
-
-        }
-    }
-
-    private void sortByFolders(File[] files) {
-        if (files != null) {
-            java.util.Arrays.sort(files, new Comparator<File>() {
-                @Override
-                public int compare(File file1, File file2) {
-                    if (file1.isDirectory() && !file2.isDirectory()) {
-                        return -1;
-                    } else if (!file1.isDirectory() && file2.isDirectory()) {
-                        return 1;
-                    } else {
-                        return file1.getName().compareToIgnoreCase(file2.getName());
-                    }
-                }
-            });
+                navigationPane.add(elementBox, rowIndex);
+                rowIndex++;
+                leftScrollPane.setViewportView(navigationPane);
+            }
         }
     }
 
     private void addToContentPane(String path) throws RemoteException {
-        File[] files = getfunctions.showfiles(path);
         contentPane.removeAll();
         contentPane.revalidate();
         contentPane.repaint();
         rightScrollPane.setViewportView(contentPane);
-        File[] directoryItems = new File(path).listFiles();
-        sortByFolders(directoryItems);
+        File[] directoryItems = getfunctions.showfiles(path);  
         for (File f : directoryItems) {
 
             JPanel elementBox = new JPanel();
@@ -179,7 +161,7 @@ public class Main extends javax.swing.JFrame {
             JLabel elementName = new JLabel();
 
             ImageIcon image;
-            if (f.isDirectory()) {
+            if (getfunctions.isDirectory(f.getPath())) {
                 image = new ImageIcon(System.getProperty("user.dir") + "\\icons\\folder.png");
 
             } else {
@@ -201,7 +183,7 @@ public class Main extends javax.swing.JFrame {
             elementBox.addMouseListener(new MouseAdapter() {
                 @Override
                 public void mouseClicked(MouseEvent e) {
-                    if (e.getClickCount() == 2){
+                    if (e.getClickCount() == 2) {
                         try {
                             openSelectedItem(elementBox);
                         } catch (RemoteException ex) {
@@ -264,7 +246,7 @@ public class Main extends javax.swing.JFrame {
             if (getfunctions.openElement(path)) {
                 addToContentPane(path);
             } else {
-                new fileEditor(getfunctions.readFile(path), this).setVisible(true);
+                new fileEditor(path, getfunctions.readFile(path), this).setVisible(true);
             }
         } catch (Exception ex) {
             Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
@@ -540,7 +522,7 @@ public class Main extends javax.swing.JFrame {
             if (getfunctions.openElement(filePath)) {
                 addToContentPane(filePath);
             } else {
-                new fileEditor(getfunctions.readFile(filePath), this).setVisible(true);
+                new fileEditor(filePath, getfunctions.readFile(filePath), this).setVisible(true);
             }
         } catch (Exception ex) {
             Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);

@@ -18,8 +18,12 @@ public interface interfacefile extends Remote {
 
     boolean openElement(String path) throws RemoteException;
 
-    File readFile(String path) throws RemoteException;
+    String readFile(String path) throws RemoteException;
 
     boolean saveFile(String path, String content) throws RemoteException;
+
+    boolean checkSubDirectory(String path) throws RemoteException;
+
+    boolean isDirectory(String path) throws RemoteException;
 
 }

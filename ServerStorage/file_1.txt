@@ -1,4 +1,5 @@
 Un notebook Jupyter est un environnement interactif de programmation qui permet de créer et de partager des documents intégrant du code, 
 des visualisations et du texte. Il est largement utilisé dans les domaines de la science des données, 
+
 de l'apprentissage machine et de la recherche scientifique pour faciliter l'analyse exploratoire et la communication des résultats de manière interactive. 
 Les notebooks Jupyter prennent en charge plusieurs langages de programmation, dont Python, R et Julia. 

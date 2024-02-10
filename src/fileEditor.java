@@ -8,23 +8,17 @@ import java.util.logging.Logger;
 
 public class fileEditor extends javax.swing.JFrame {
 
-    private File file;
+    private String path;
     private Main mainFrame;
 
-    public fileEditor(File file, Main main) {
-        this.file = file;
+    public fileEditor(String path, String content, Main main) {
+        this.path = path;
         this.mainFrame = main;
         initComponents();
         setDefaultCloseOperation(fileEditor.DISPOSE_ON_CLOSE);
         this.setLocationRelativeTo(null);
         try {
-            FileReader fileContent = new FileReader(file);
-            String s = "";
-            int i = 0;
-            while ((i = fileContent.read()) != -1) {
-                s = s + (char) i;
-            }
-            textContent.setText(s);
+            textContent.setText(content);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -87,7 +81,7 @@ public class fileEditor extends javax.swing.JFrame {
     private void saveActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_saveActionPerformed
         if (mainFrame != null) {
             try {
-                mainFrame.onFileSaved(file.getPath(), textContent.getText());
+                mainFrame.onFileSaved(path, textContent.getText());
             } catch (RemoteException ex) {
                 Logger.getLogger(fileEditor.class.getName()).log(Level.SEVERE, null, ex);
             }

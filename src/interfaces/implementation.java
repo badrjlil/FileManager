@@ -3,8 +3,11 @@ package interfaces;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.Comparator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -17,8 +20,26 @@ public class implementation extends UnicastRemoteObject implements interfacefile
 
     @Override
     public File[] showfiles(String path) {
-        File[] files = new File(path).listFiles(file -> file.isDirectory());
+        File[] files = new File(path).listFiles(/*file -> file.isDirectory()*/);
+        sortByFolders(files);
         return files;
+    }
+
+    private void sortByFolders(File[] files) {
+        if (files != null) {
+            java.util.Arrays.sort(files, new Comparator<File>() {
+                @Override
+                public int compare(File file1, File file2) {
+                    if (file1.isDirectory() && !file2.isDirectory()) {
+                        return -1;
+                    } else if (!file1.isDirectory() && file2.isDirectory()) {
+                        return 1;
+                    } else {
+                        return file1.getName().compareToIgnoreCase(file2.getName());
+                    }
+                }
+            });
+        }
     }
 
     @Override
@@ -99,9 +120,19 @@ public class implementation extends UnicastRemoteObject implements interfacefile
     }
 
     @Override
-    public File readFile(String path) throws RemoteException {
+    public String readFile(String path) throws RemoteException {
         File file = new File(path);
-        return file;
+        String s = "";
+        try {
+            FileReader fileContent = new FileReader(file);
+            int i = 0;
+            while ((i = fileContent.read()) != -1) {
+                s = s + (char) i;
+            }
+        } catch (Exception ex) {
+            Logger.getLogger(implementation.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return s;
     }
 
     @Override
@@ -114,5 +145,30 @@ public class implementation extends UnicastRemoteObject implements interfacefile
             Logger.getLogger(implementation.class.getName()).log(Level.SEVERE, null, ex);
         }
         return false;
+    }
+    
+    @Override
+    public boolean checkSubDirectory(String path) throws RemoteException {
+        File file = new File(path);
+
+        if (file.listFiles(subDirectory -> subDirectory.isDirectory()).length > 0) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /*@Override
+    public String getFolderPath() throws RemoteException {
+        return System.getProperty("user.dir") + "\\ServerStorage";
+    }*/
+    @Override
+    public boolean isDirectory(String path) throws RemoteException {
+        File file = new File(path);
+        if (file.isDirectory()) {
+            return true;
+        } else {
+            return false;
+        }
     }
 }
