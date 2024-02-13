@@ -16,19 +16,23 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.rmi.Naming;
 import java.rmi.RemoteException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
@@ -53,6 +57,7 @@ public class Main extends javax.swing.JFrame {
         deleteItem.setEnabled(false);
         renameItem.setEnabled(false);
         open.setEnabled(false);
+        download.setEnabled(false);
         this.setLocationRelativeTo(null);
         contentPane.setLayout(new GridLayout(ERROR, 1));
         navigationPane.setLayout(new GridLayout(ERROR, 1));
@@ -162,6 +167,10 @@ public class Main extends javax.swing.JFrame {
     }
 
     private void addToContentPane(String path) throws RemoteException {
+        deleteItem.setEnabled(false);
+        renameItem.setEnabled(false);
+        open.setEnabled(false);
+        download.setEnabled(false);
         contentPane.removeAll();
         contentPane.revalidate();
         contentPane.repaint();
@@ -255,6 +264,7 @@ public class Main extends javax.swing.JFrame {
         deleteItem.setEnabled(true);
         renameItem.setEnabled(true);
         open.setEnabled(true);
+        download.setEnabled(true);
     }
 
     private void openSelectedItem(JPanel elementBox) throws RemoteException {
@@ -290,6 +300,7 @@ public class Main extends javax.swing.JFrame {
         quit = new javax.swing.JButton();
         uploadFile = new javax.swing.JButton();
         uploadFolder = new javax.swing.JButton();
+        download = new javax.swing.JButton();
         open = new javax.swing.JButton();
 
         jTextArea1.setColumns(20);
@@ -411,6 +422,13 @@ public class Main extends javax.swing.JFrame {
             }
         });
 
+        download.setText("Télécharger");
+        download.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                downloadActionPerformed(evt);
+            }
+        });
+
         open.setText("Ouvrir");
         open.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -433,13 +451,16 @@ public class Main extends javax.swing.JFrame {
                     .addComponent(createFolder, javax.swing.GroupLayout.PREFERRED_SIZE, 138, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(createFile, javax.swing.GroupLayout.PREFERRED_SIZE, 138, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(uploadFile, javax.swing.GroupLayout.PREFERRED_SIZE, 138, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(uploadFolder, javax.swing.GroupLayout.PREFERRED_SIZE, 138, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                    .addComponent(uploadFolder, javax.swing.GroupLayout.PREFERRED_SIZE, 138, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(download, javax.swing.GroupLayout.PREFERRED_SIZE, 138, javax.swing.GroupLayout.PREFERRED_SIZE)))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addComponent(controller, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(download, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(uploadFolder, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(uploadFile, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -601,7 +622,6 @@ public class Main extends javax.swing.JFrame {
                 Files.walkFileTree(selectedFolderPath, new SimpleFileVisitor<Path>() {
                     @Override
                     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                        // Add the folder name as a prefix to the entry within the ZIP file
                         String entryName = selectedFolderPath.relativize(file).toString();
                         zos.putNextEntry(new ZipEntry(folderName + "/" + entryName));
                         Files.copy(file, zos);
@@ -622,11 +642,55 @@ public class Main extends javax.swing.JFrame {
 
     }//GEN-LAST:event_uploadFolderActionPerformed
 
+    private void downloadActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_downloadActionPerformed
+        String itemPath = ((JLabel) selectedContentElementBoxes.getFirst().getComponent(1)).getText();
+        try {
+            JFileChooser fileChooser = new JFileChooser();
+            fileChooser.setDialogTitle("Select Destination");
+            fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+            File file = getfunctions.download(itemPath);
+            int returnValue = fileChooser.showSaveDialog(null);
+            if (returnValue == JFileChooser.APPROVE_OPTION) {
+                File selectedFile = fileChooser.getSelectedFile();
+                Path extractPath = selectedFile.toPath();
+                if (!file.getName().equals("tempFolderToUpload.zip")) {
+                    try {
+                        Path destinationPath = selectedFile.toPath().resolve(file.getName());
+                        Files.copy(file.toPath(), destinationPath, StandardCopyOption.REPLACE_EXISTING);
+                    } catch (IOException e) {
+                        System.err.println("Failed to save file: " + e.getMessage());
+                    }
+                } else {
+                    ZipInputStream zis = new ZipInputStream(new FileInputStream(file));
+                    ZipEntry zipEntry = zis.getNextEntry();
+                    while (zipEntry != null) {
+                        Path newPath = extractPath.resolve(zipEntry.getName());
+                        if (zipEntry.isDirectory()) {
+                            Files.createDirectories(newPath);
+                        } else {
+                            Files.createDirectories(newPath.getParent());
+                            try (OutputStream os = Files.newOutputStream(newPath)) {
+                                byte[] buffer = new byte[1024];
+                                int len;
+                                while ((len = zis.read(buffer)) > 0) {
+                                    os.write(buffer, 0, len);
+                                }
+                            }
+                        }
+                        zipEntry = zis.getNextEntry();
+                    }
+                    zis.closeEntry();
+                }
+            } else {
+                System.out.println("No location selected to save the file.");
+            }
+        } catch (Exception ex) {
+            Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }//GEN-LAST:event_downloadActionPerformed
+
     private void refresh() throws RemoteException {
         addToContentPane(defaultPath + pathLabel.getText());
-        deleteItem.setEnabled(false);
-        renameItem.setEnabled(false);
-        open.setEnabled(false);
     }
 
     public static void main(String args[]) {
@@ -638,13 +702,7 @@ public class Main extends javax.swing.JFrame {
                     break;
                 }
             }
-        } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(Main.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(Main.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(Main.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (javax.swing.UnsupportedLookAndFeelException ex) {
+        } catch (Exception ex) {
             java.util.logging.Logger.getLogger(Main.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
         java.awt.EventQueue.invokeLater(new Runnable() {
@@ -664,6 +722,7 @@ public class Main extends javax.swing.JFrame {
     private javax.swing.JButton createFile;
     private javax.swing.JButton createFolder;
     private javax.swing.JButton deleteItem;
+    private javax.swing.JButton download;
     private javax.swing.JButton goaBack;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JScrollPane jScrollPane1;

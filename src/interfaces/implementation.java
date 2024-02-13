@@ -4,19 +4,24 @@ import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Comparator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 public class implementation extends UnicastRemoteObject implements interfacefile {
 
@@ -198,28 +203,60 @@ public class implementation extends UnicastRemoteObject implements interfacefile
     @Override
     public void uploadFolder(String path, File file) throws RemoteException {
         Path extractPath = Paths.get(defaultPath + path);
-            try (ZipInputStream zis = new ZipInputStream(new FileInputStream(file))) {
-                ZipEntry zipEntry = zis.getNextEntry();
-                while (zipEntry != null) {
-                    Path newPath = extractPath.resolve(zipEntry.getName());
-                    if (zipEntry.isDirectory()) {
-                        Files.createDirectories(newPath);
-                    } else {
-                        Files.createDirectories(newPath.getParent());
-                        try (OutputStream os = Files.newOutputStream(newPath)) {
-                            byte[] buffer = new byte[1024];
-                            int len;
-                            while ((len = zis.read(buffer)) > 0) {
-                                os.write(buffer, 0, len);
-                            }
+        try (ZipInputStream zis = new ZipInputStream(new FileInputStream(file))) {
+            ZipEntry zipEntry = zis.getNextEntry();
+            while (zipEntry != null) {
+                Path newPath = extractPath.resolve(zipEntry.getName());
+                if (zipEntry.isDirectory()) {
+                    Files.createDirectories(newPath);
+                } else {
+                    Files.createDirectories(newPath.getParent());
+                    try (OutputStream os = Files.newOutputStream(newPath)) {
+                        byte[] buffer = new byte[1024];
+                        int len;
+                        while ((len = zis.read(buffer)) > 0) {
+                            os.write(buffer, 0, len);
                         }
                     }
-                    zipEntry = zis.getNextEntry();
                 }
-                zis.closeEntry();
+                zipEntry = zis.getNextEntry();
+            }
+            zis.closeEntry();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    @Override
+    public File download(String path) throws RemoteException {
+        File file = new File(defaultPath + "\\" + path);
+        File fileToSend = null;
+        if (file.isFile()) {
+            return file;
+        } else {
+            Path selectedFolderPath = file.toPath();
+            String folderName = file.getName();
+            Path zipPath = Paths.get(System.getProperty("java.io.tmpdir") + "tempFolderToUpload.zip");
+            try {
+                ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipPath.toFile()));
+                Files.walkFileTree(selectedFolderPath, new SimpleFileVisitor<Path>() {
+                    @Override
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                        // Add the folder name as a prefix to the entry within the ZIP file
+                        String entryName = selectedFolderPath.relativize(file).toString();
+                        zos.putNextEntry(new ZipEntry(folderName + "/" + entryName));
+                        Files.copy(file, zos);
+                        zos.closeEntry();
+                        return FileVisitResult.CONTINUE;
+                    }
+                });
+                zos.close();
+                fileToSend = new File(zipPath.toString());
             } catch (Exception e) {
                 e.printStackTrace();
             }
-        
+            return fileToSend;
+        }
     }
 }

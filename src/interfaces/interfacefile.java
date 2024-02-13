@@ -29,5 +29,7 @@ public interface interfacefile extends Remote {
     void ulpoad(String path, File file) throws RemoteException;
     
     void uploadFolder(String path, File file) throws RemoteException;
+    
+    File download(String path) throws RemoteException;
 
 }
