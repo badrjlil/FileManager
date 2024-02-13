@@ -25,5 +25,9 @@ public interface interfacefile extends Remote {
     boolean checkSubDirectory(String path) throws RemoteException;
 
     boolean isDirectory(String path) throws RemoteException;
+    
+    void ulpoad(String path, File file) throws RemoteException;
+    
+    void uploadFolder(String path, File file) throws RemoteException;
 
 }

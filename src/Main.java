@@ -16,12 +16,22 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.rmi.Naming;
 import java.rmi.RemoteException;
-import java.util.Comparator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 import javax.swing.JButton;
+import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 import javax.swing.border.EmptyBorder;
 
@@ -40,6 +50,9 @@ public class Main extends javax.swing.JFrame {
 
     public Main() throws Exception {
         initComponents();
+        deleteItem.setEnabled(false);
+        renameItem.setEnabled(false);
+        open.setEnabled(false);
         this.setLocationRelativeTo(null);
         contentPane.setLayout(new GridLayout(ERROR, 1));
         navigationPane.setLayout(new GridLayout(ERROR, 1));
@@ -153,7 +166,7 @@ public class Main extends javax.swing.JFrame {
         contentPane.revalidate();
         contentPane.repaint();
         rightScrollPane.setViewportView(contentPane);
-        File[] directoryItems = getfunctions.showfiles(path);  
+        File[] directoryItems = getfunctions.showfiles(path);
         for (File f : directoryItems) {
 
             JPanel elementBox = new JPanel();
@@ -238,6 +251,10 @@ public class Main extends javax.swing.JFrame {
             selectedContentElementBoxes.add(elementBox);
         }
         elementBox.putClientProperty("selected", isSelected != null ? !isSelected : true);
+
+        deleteItem.setEnabled(true);
+        renameItem.setEnabled(true);
+        open.setEnabled(true);
     }
 
     private void openSelectedItem(JPanel elementBox) throws RemoteException {
@@ -271,6 +288,8 @@ public class Main extends javax.swing.JFrame {
         renameItem = new javax.swing.JButton();
         createFile = new javax.swing.JButton();
         quit = new javax.swing.JButton();
+        uploadFile = new javax.swing.JButton();
+        uploadFolder = new javax.swing.JButton();
         open = new javax.swing.JButton();
 
         jTextArea1.setColumns(20);
@@ -378,6 +397,20 @@ public class Main extends javax.swing.JFrame {
             }
         });
 
+        uploadFile.setText("Upload file");
+        uploadFile.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                uploadFileActionPerformed(evt);
+            }
+        });
+
+        uploadFolder.setText("Upload folder");
+        uploadFolder.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                uploadFolderActionPerformed(evt);
+            }
+        });
+
         open.setText("Ouvrir");
         open.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -391,35 +424,41 @@ public class Main extends javax.swing.JFrame {
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
                 .addComponent(controller, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                        .addComponent(createFile, javax.swing.GroupLayout.PREFERRED_SIZE, 138, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(deleteItem, javax.swing.GroupLayout.PREFERRED_SIZE, 138, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(createFolder, javax.swing.GroupLayout.PREFERRED_SIZE, 138, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(renameItem, javax.swing.GroupLayout.PREFERRED_SIZE, 138, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addComponent(quit, javax.swing.GroupLayout.PREFERRED_SIZE, 138, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addGroup(layout.createSequentialGroup()
-                        .addGap(0, 0, 0)
-                        .addComponent(open, javax.swing.GroupLayout.PREFERRED_SIZE, 138, javax.swing.GroupLayout.PREFERRED_SIZE))))
+                .addGap(0, 0, 0)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.CENTER)
+                    .addComponent(quit, javax.swing.GroupLayout.PREFERRED_SIZE, 138, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(open, javax.swing.GroupLayout.PREFERRED_SIZE, 138, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(deleteItem, javax.swing.GroupLayout.PREFERRED_SIZE, 138, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(renameItem, javax.swing.GroupLayout.PREFERRED_SIZE, 138, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(createFolder, javax.swing.GroupLayout.PREFERRED_SIZE, 138, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(createFile, javax.swing.GroupLayout.PREFERRED_SIZE, 138, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(uploadFile, javax.swing.GroupLayout.PREFERRED_SIZE, 138, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(uploadFolder, javax.swing.GroupLayout.PREFERRED_SIZE, 138, javax.swing.GroupLayout.PREFERRED_SIZE)))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addComponent(controller, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addGroup(layout.createSequentialGroup()
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(createFile, javax.swing.GroupLayout.PREFERRED_SIZE, 54, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(createFolder, javax.swing.GroupLayout.PREFERRED_SIZE, 54, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(renameItem, javax.swing.GroupLayout.PREFERRED_SIZE, 54, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(deleteItem, javax.swing.GroupLayout.PREFERRED_SIZE, 54, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(open, javax.swing.GroupLayout.PREFERRED_SIZE, 54, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(quit, javax.swing.GroupLayout.PREFERRED_SIZE, 54, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(uploadFolder, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(uploadFile, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(createFile, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(createFolder, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(renameItem, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(deleteItem, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(open, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(quit, javax.swing.GroupLayout.PREFERRED_SIZE, 40, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(29, 29, 29))
         );
+
+        layout.linkSize(javax.swing.SwingConstants.VERTICAL, new java.awt.Component[] {createFile, createFolder, deleteItem, open, quit, renameItem, uploadFile});
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
@@ -432,6 +471,7 @@ public class Main extends javax.swing.JFrame {
         }
         try {
             addToContentPane(defaultPath + laaabel);
+            refresh();
         } catch (RemoteException ex) {
             Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -468,7 +508,7 @@ public class Main extends javax.swing.JFrame {
             if (status) {
                 refresh();
             } else {
-                JOptionPane.showMessageDialog(this, "Could not delete shit");
+                JOptionPane.showMessageDialog(this, "Echec de la suppression");
             }
         } catch (Exception ex) {
             Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
@@ -529,8 +569,64 @@ public class Main extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_openActionPerformed
 
+    private void uploadFileActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_uploadFileActionPerformed
+        JFileChooser fileChooser = new JFileChooser();
+        int returnValue = fileChooser.showOpenDialog(null);
+        if (returnValue == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = fileChooser.getSelectedFile();
+            System.out.println("Selected file: " + selectedFile.getAbsolutePath());
+            File chosenFile = selectedFile;
+            try {
+                getfunctions.ulpoad(pathLabel.getText(), chosenFile);
+                refresh();
+            } catch (RemoteException ex) {
+                Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        } else {
+            System.out.println("No file selected.");
+        }
+    }//GEN-LAST:event_uploadFileActionPerformed
+
+    private void uploadFolderActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_uploadFolderActionPerformed
+        JFileChooser folderChooser = new JFileChooser();
+        folderChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        int returnValue = folderChooser.showOpenDialog(null);
+        if (returnValue == JFileChooser.APPROVE_OPTION) {
+            File selectedFolder = folderChooser.getSelectedFile();
+            Path selectedFolderPath = selectedFolder.toPath();
+            String folderName = selectedFolder.getName();
+            Path zipPath = Paths.get(System.getProperty("java.io.tmpdir") + "tempFolderToUpload.zip");
+            try {
+                ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipPath.toFile()));
+                Files.walkFileTree(selectedFolderPath, new SimpleFileVisitor<Path>() {
+                    @Override
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                        // Add the folder name as a prefix to the entry within the ZIP file
+                        String entryName = selectedFolderPath.relativize(file).toString();
+                        zos.putNextEntry(new ZipEntry(folderName + "/" + entryName));
+                        Files.copy(file, zos);
+                        zos.closeEntry();
+                        return FileVisitResult.CONTINUE;
+                    }
+                });
+                zos.close();
+                File file = new File(zipPath.toString());
+                getfunctions.uploadFolder(pathLabel.getText(), file);
+                refresh();
+            } catch (IOException ex) {
+                Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        } else {
+            System.out.println("No folder selected.");
+        }
+
+    }//GEN-LAST:event_uploadFolderActionPerformed
+
     private void refresh() throws RemoteException {
         addToContentPane(defaultPath + pathLabel.getText());
+        deleteItem.setEnabled(false);
+        renameItem.setEnabled(false);
+        open.setEnabled(false);
     }
 
     public static void main(String args[]) {
@@ -578,5 +674,7 @@ public class Main extends javax.swing.JFrame {
     private javax.swing.JButton quit;
     private javax.swing.JButton renameItem;
     private javax.swing.JScrollPane rightScrollPane;
+    private javax.swing.JButton uploadFile;
+    private javax.swing.JButton uploadFolder;
     // End of variables declaration//GEN-END:variables
 }

@@ -3,15 +3,24 @@ package interfaces;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.io.File;
-import java.io.FileNotFoundException;
+import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.Comparator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 public class implementation extends UnicastRemoteObject implements interfacefile {
+
+    private final String defaultPath = System.getProperty("user.dir") + "\\ServerStorage";
 
     public implementation() throws RemoteException {
         super();
@@ -146,7 +155,7 @@ public class implementation extends UnicastRemoteObject implements interfacefile
         }
         return false;
     }
-    
+
     @Override
     public boolean checkSubDirectory(String path) throws RemoteException {
         File file = new File(path);
@@ -170,5 +179,47 @@ public class implementation extends UnicastRemoteObject implements interfacefile
         } else {
             return false;
         }
+    }
+
+    @Override
+    public void ulpoad(String path, File file) throws RemoteException {
+        String destinationPath = System.getProperty("user.dir") + "\\ServerStorage" + path + "\\" + file.getName();
+        Path destination = Paths.get(destinationPath);
+        try {
+            // Copy the contents of the selected file to the destination path
+            Files.copy(file.toPath(), destination, StandardCopyOption.REPLACE_EXISTING);
+            System.out.println("File saved to: " + destinationPath);
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.out.println("Failed to save file: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void uploadFolder(String path, File file) throws RemoteException {
+        Path extractPath = Paths.get(defaultPath + path);
+            try (ZipInputStream zis = new ZipInputStream(new FileInputStream(file))) {
+                ZipEntry zipEntry = zis.getNextEntry();
+                while (zipEntry != null) {
+                    Path newPath = extractPath.resolve(zipEntry.getName());
+                    if (zipEntry.isDirectory()) {
+                        Files.createDirectories(newPath);
+                    } else {
+                        Files.createDirectories(newPath.getParent());
+                        try (OutputStream os = Files.newOutputStream(newPath)) {
+                            byte[] buffer = new byte[1024];
+                            int len;
+                            while ((len = zis.read(buffer)) > 0) {
+                                os.write(buffer, 0, len);
+                            }
+                        }
+                    }
+                    zipEntry = zis.getNextEntry();
+                }
+                zis.closeEntry();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        
     }
 }
