@@ -4,6 +4,7 @@ import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -172,10 +173,6 @@ public class implementation extends UnicastRemoteObject implements interfacefile
         }
     }
 
-    /*@Override
-    public String getFolderPath() throws RemoteException {
-        return System.getProperty("user.dir") + "\\ServerStorage";
-    }*/
     @Override
     public boolean isDirectory(String path) throws RemoteException {
         File file = new File(path);
@@ -187,23 +184,35 @@ public class implementation extends UnicastRemoteObject implements interfacefile
     }
 
     @Override
-    public void ulpoad(String path, File file) throws RemoteException {
-        String destinationPath = System.getProperty("user.dir") + "\\ServerStorage" + path + "\\" + file.getName();
-        Path destination = Paths.get(destinationPath);
+    public void ulpoad(String path, String fileName, byte[] pixels) throws RemoteException {
+        //String destinationPath = System.getProperty("user.dir") + "\\ServerStorage" + path + "\\" + file.getName();
+        //Path destination = Paths.get(destinationPath);
+        File directory = new File(defaultPath + "\\" + path);
         try {
             // Copy the contents of the selected file to the destination path
-            Files.copy(file.toPath(), destination, StandardCopyOption.REPLACE_EXISTING);
-            System.out.println("File saved to: " + destinationPath);
-        } catch (IOException e) {
+            //Files.copy(file.toPath(), destination, StandardCopyOption.REPLACE_EXISTING);
+            File outputFile = new File(directory, fileName);
+            FileOutputStream out = new FileOutputStream(outputFile);
+            byte[] pxl = pixels;
+            out.write(pxl);
+            out.close();
+            System.out.println("File saved to: " + directory + "\\" + fileName);
+        } catch (Exception e) {
             e.printStackTrace();
             System.out.println("Failed to save file: " + e.getMessage());
         }
     }
 
     @Override
-    public void uploadFolder(String path, File file) throws RemoteException {
-        Path extractPath = Paths.get(defaultPath + path);
-        try (ZipInputStream zis = new ZipInputStream(new FileInputStream(file))) {
+    public void uploadFolder(String path, String fileName, byte[] pixels) throws RemoteException {
+        try {
+            File outputFile = new File(System.getProperty("java.io.tmpdir"), "tempFolderToUpload.zip");
+            FileOutputStream out = new FileOutputStream(outputFile);
+            byte[] pxl = pixels;
+            out.write(pxl);
+            out.close();
+            Path extractPath = Paths.get(defaultPath + path);
+            ZipInputStream zis = new ZipInputStream(new FileInputStream(outputFile));
             ZipEntry zipEntry = zis.getNextEntry();
             while (zipEntry != null) {
                 Path newPath = extractPath.resolve(zipEntry.getName());
@@ -229,11 +238,19 @@ public class implementation extends UnicastRemoteObject implements interfacefile
     }
 
     @Override
-    public File download(String path) throws RemoteException {
+    public byte[] download(String path) throws RemoteException {
         File file = new File(defaultPath + "\\" + path);
-        File fileToSend = null;
+        //File fileToSend = null;
+        byte[] pixels = null;
         if (file.isFile()) {
-            return file;
+            try {
+                FileInputStream in = new FileInputStream(file);
+                pixels = new byte[in.available()];
+                in.read(pixels);
+            } catch (Exception ex) {
+                Logger.getLogger(implementation.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            return pixels;
         } else {
             Path selectedFolderPath = file.toPath();
             String folderName = file.getName();
@@ -252,11 +269,14 @@ public class implementation extends UnicastRemoteObject implements interfacefile
                     }
                 });
                 zos.close();
-                fileToSend = new File(zipPath.toString());
+                FileInputStream in = new FileInputStream(new File(zipPath.toString()));
+                pixels = new byte[in.available()];
+                in.read(pixels);
+                //fileToSend = new File(zipPath.toString());
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            return fileToSend;
+            return pixels;
         }
     }
 }

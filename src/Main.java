@@ -25,7 +25,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.rmi.Naming;
 import java.rmi.RemoteException;
@@ -48,7 +47,6 @@ public class Main extends javax.swing.JFrame {
     JPanel contentPane = new JPanel();
     JPanel navigationPane = new JPanel();
 
-    ArrayList<String> folderUrls = new ArrayList<>();
     private static ArrayList<JPanel> selectedElementBoxes = new ArrayList<>();
     private static ArrayList<JPanel> selectedContentElementBoxes = new ArrayList<>();
 
@@ -592,15 +590,19 @@ public class Main extends javax.swing.JFrame {
 
     private void uploadFileActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_uploadFileActionPerformed
         JFileChooser fileChooser = new JFileChooser();
+        byte[] pixels = null;
         int returnValue = fileChooser.showOpenDialog(null);
         if (returnValue == JFileChooser.APPROVE_OPTION) {
             File selectedFile = fileChooser.getSelectedFile();
             System.out.println("Selected file: " + selectedFile.getAbsolutePath());
             File chosenFile = selectedFile;
-            try {
-                getfunctions.ulpoad(pathLabel.getText(), chosenFile);
+            String fileName = chosenFile.getName();
+            try (FileInputStream in = new FileInputStream(chosenFile)) {
+                pixels = new byte[in.available()];
+                in.read(pixels);
+                getfunctions.ulpoad(pathLabel.getText(), fileName, pixels);
                 refresh();
-            } catch (RemoteException ex) {
+            } catch (Exception ex) {
                 Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
             }
         } else {
@@ -610,6 +612,7 @@ public class Main extends javax.swing.JFrame {
 
     private void uploadFolderActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_uploadFolderActionPerformed
         JFileChooser folderChooser = new JFileChooser();
+        byte[] pixels = null;
         folderChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
         int returnValue = folderChooser.showOpenDialog(null);
         if (returnValue == JFileChooser.APPROVE_OPTION) {
@@ -630,8 +633,10 @@ public class Main extends javax.swing.JFrame {
                     }
                 });
                 zos.close();
-                File file = new File(zipPath.toString());
-                getfunctions.uploadFolder(pathLabel.getText(), file);
+                FileInputStream in = new FileInputStream(new File(zipPath.toString()));
+                pixels = new byte[in.available()];
+                in.read(pixels);
+                getfunctions.uploadFolder(pathLabel.getText(), folderName, pixels);
                 refresh();
             } catch (IOException ex) {
                 Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
@@ -643,25 +648,24 @@ public class Main extends javax.swing.JFrame {
     }//GEN-LAST:event_uploadFolderActionPerformed
 
     private void downloadActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_downloadActionPerformed
-        String itemPath = ((JLabel) selectedContentElementBoxes.getFirst().getComponent(1)).getText();
+        String itemName = ((JLabel) selectedContentElementBoxes.getFirst().getComponent(1)).getText();
+        String itemPath = pathLabel.getText() + "\\" + itemName;
         try {
             JFileChooser fileChooser = new JFileChooser();
             fileChooser.setDialogTitle("Select Destination");
             fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-            File file = getfunctions.download(itemPath);
             int returnValue = fileChooser.showSaveDialog(null);
             if (returnValue == JFileChooser.APPROVE_OPTION) {
                 File selectedFile = fileChooser.getSelectedFile();
                 Path extractPath = selectedFile.toPath();
-                if (!file.getName().equals("tempFolderToUpload.zip")) {
-                    try {
-                        Path destinationPath = selectedFile.toPath().resolve(file.getName());
-                        Files.copy(file.toPath(), destinationPath, StandardCopyOption.REPLACE_EXISTING);
-                    } catch (IOException e) {
-                        System.err.println("Failed to save file: " + e.getMessage());
-                    }
-                } else {
-                    ZipInputStream zis = new ZipInputStream(new FileInputStream(file));
+                if (getfunctions.isDirectory(defaultPath + "\\" + itemPath)) {
+                    byte[] pixels = getfunctions.download(itemPath);
+                    File outputFile = new File(System.getProperty("java.io.tmpdir"), "tempFolderToUpload.zip");
+                    FileOutputStream out = new FileOutputStream(outputFile);
+                    byte[] pxl = pixels;
+                    out.write(pxl);
+                    out.close();
+                    ZipInputStream zis = new ZipInputStream(new FileInputStream(outputFile));
                     ZipEntry zipEntry = zis.getNextEntry();
                     while (zipEntry != null) {
                         Path newPath = extractPath.resolve(zipEntry.getName());
@@ -680,10 +684,58 @@ public class Main extends javax.swing.JFrame {
                         zipEntry = zis.getNextEntry();
                     }
                     zis.closeEntry();
+                } else {
+                    File outputFile = new File(selectedFile.getPath());
+                    FileOutputStream out = new FileOutputStream(outputFile + "\\" + itemName);
+                    byte[] pxl = getfunctions.download(itemPath);
+                    out.write(pxl);
+                    out.close();
+                    System.out.println("File saved ");
                 }
-            } else {
-                System.out.println("No location selected to save the file.");
             }
+
+
+            /*try {
+
+                
+                
+                
+
+                   
+                        try {
+                            Path destinationPath = selectedFile.toPath().resolve(file.getName());
+                            Files.copy(file.toPath(), destinationPath, StandardCopyOption.REPLACE_EXISTING);
+                        } catch (IOException e) {
+                            System.err.println("Failed to save file: " + e.getMessage());
+                        }
+                    } else {
+                        ZipInputStream zis = new ZipInputStream(new FileInputStream(file));
+                        ZipEntry zipEntry = zis.getNextEntry();
+                        while (zipEntry != null) {
+                            Path newPath = extractPath.resolve(zipEntry.getName());
+                            if (zipEntry.isDirectory()) {
+                                Files.createDirectories(newPath);
+                            } else {
+                                Files.createDirectories(newPath.getParent());
+                                try (OutputStream os = Files.newOutputStream(newPath)) {
+                                    byte[] buffer = new byte[1024];
+                                    int len;
+                                    while ((len = zis.read(buffer)) > 0) {
+                                        os.write(buffer, 0, len);
+                                    }
+                                }
+                            }
+                            zipEntry = zis.getNextEntry();
+                        }
+                        zis.closeEntry();
+                    }
+                } else {
+                    System.out.println("No location selected to save the file.");
+                }
+            } catch (Exception ex) {
+                Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+            }
+             */
         } catch (Exception ex) {
             Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
         }

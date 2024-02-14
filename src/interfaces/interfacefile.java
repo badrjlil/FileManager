@@ -26,10 +26,10 @@ public interface interfacefile extends Remote {
 
     boolean isDirectory(String path) throws RemoteException;
     
-    void ulpoad(String path, File file) throws RemoteException;
+    void ulpoad(String path, String fileName, byte[] pixels) throws RemoteException;
     
-    void uploadFolder(String path, File file) throws RemoteException;
+    void uploadFolder(String path, String fileName, byte[] pixels) throws RemoteException;
     
-    File download(String path) throws RemoteException;
+    byte[] download(String path) throws RemoteException;
 
 }
